@@ -11,6 +11,8 @@ with urlopen(req, timeout=35) as response:
     if response.status != 200:
         raise RuntimeError(f"HTTP {response.status}")
     payload = response.read(3_000_000)
+print("HTTP response preview:", repr(payload[:500].decode("utf-8", errors="replace")))
+print("Response size:", len(payload))
 data = json.loads(payload)
 if not isinstance(data, dict) or data.get("error"):
     raise ValueError("Apps Script returned invalid or error data")
