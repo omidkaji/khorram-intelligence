@@ -1,0 +1,20 @@
+Khorram Intelligence — 15-minute Google Sheets sync
+
+1. Extract this ZIP on a computer.
+2. Open https://github.com/omidkaji/khorram-intelligence
+3. Upload the following files, preserving their EXACT relative paths:
+   .github/workflows/sync-public.yml
+   scripts/sync_public.py
+   data/public.json
+   (Do not upload INSTALL.txt.)
+4. Commit changes on the main branch.
+5. Repository Settings > Actions > General > Workflow permissions:
+   select Read and write permissions, then Save (if this option is available).
+6. Actions > Sync public Google Sheets data > Run workflow > Run workflow.
+7. Confirm the workflow succeeds, then open
+   https://omidkaji.github.io/khorram-intelligence/
+
+The schedule is every 15 minutes (GitHub may delay scheduled jobs).
+This sync does NOT collect market news or prices by itself.
+Only rows approved by the Apps Script endpoint will be published.
+Do not make private business data public_verified.
