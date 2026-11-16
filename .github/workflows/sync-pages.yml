@@ -1,0 +1,82 @@
+name: Sync Khorram dashboard
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '7,37 * * * *'
+
+concurrency:
+  group: khorram-pages
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out dashboard
+        uses: actions/checkout@v4
+
+      - name: Download and validate Apps Script data
+        env:
+          WEB_APP_URL: https://script.google.com/macros/s/AKfycbzR_WYhmZn_dPL2N0o2_sXGBcxYJX1svylAJ1fIkcRnIZ_D3agwn6cXG82F2poyimik/exec
+        run: |
+          set -euo pipefail
+          mkdir -p _site/data
+          cp index.html _site/index.html
+          curl --fail --silent --show-error --location \
+            --proto '=https' --proto-redir '=https' \
+            --connect-timeout 15 --max-time 60 --retry 2 --retry-max-time 150 \
+            --output response.json "$WEB_APP_URL"
+          python3 - <<'PY'
+          import json
+          from datetime import datetime
+          from pathlib import Path
+
+          source = Path("response.json")
+          try:
+              data = json.loads(source.read_text(encoding="utf-8"))
+          except (UnicodeError, ValueError) as error:
+              raise SystemExit("The Web App did not return valid JSON.") from error
+
+          if not isinstance(data, dict) or "error" in data:
+              raise SystemExit("The Web App returned an error instead of public data.")
+
+          sections = ("Prices", "News", "Borders", "Dairy", "Risks", "Reports")
+          for section in sections:
+              rows = data.get(section)
+              if not isinstance(rows, list) or any(not isinstance(row, dict) for row in rows):
+                  raise SystemExit(f"Invalid or missing section: {section}")
+          if not data["Prices"] and not data["News"]:
+              raise SystemExit("The response has no prices or news. Keeping the previous deployment.")
+          try:
+              timestamp = datetime.fromisoformat(data["updated_at"])
+              if timestamp.utcoffset() is None:
+                  raise ValueError("Missing time zone")
+          except (KeyError, TypeError, ValueError) as error:
+              raise SystemExit("Missing or invalid updated_at timestamp.") from error
+
+          source.replace("_site/data/public.json")
+          print("Validated public rows:", {section: len(data[section]) for section in sections})
+          PY
+
+      - name: Upload dashboard and validated data
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
